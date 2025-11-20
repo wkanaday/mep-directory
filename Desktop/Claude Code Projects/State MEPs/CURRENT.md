@@ -8,7 +8,7 @@ When closing: "Update CURRENT.md and push to GitHub"
 
 ## What's Working
 
-### Completed States (9/51) - 18% Complete
+### Completed States (10/51) - 20% Complete
 
 #### Alabama (AL)
 - **Script**: `scrape_alabama_full.py`
@@ -74,7 +74,14 @@ When closing: "Update CURRENT.md and push to GitHub"
 - **Notes**: Clean structure with h3/h5 tags, phone links extracted successfully
 - **Status**: WORKING
 
-**Total Staff Collected**: 456 staff members
+#### Georgia (GA)
+- **Script**: `scrape_georgia_final.py`
+- **Staff Count**: 25
+- **Data Coverage**: Names, titles (all); no emails or phones publicly available
+- **Notes**: Site has bot protection - used WebFetch tool to extract data
+- **Status**: WORKING
+
+**Total Staff Collected**: 481 staff members
 
 ## What Needs Attention
 
@@ -94,12 +101,11 @@ These intermediate scripts should be archived or deleted:
 **Continue in alphabetical order through remaining states:**
 
 Next states to complete:
-1. **Georgia (GA)** - https://gamep.org/meet-the-gamep-team/
-2. **Hawaii (HI)** - https://www.htdc.org/our-team/
-3. **Idaho (ID)** - https://www.techhelp.org/staff/
-4. **Illinois (IL)** - https://www.imec.org/
-5. **Indiana (IN)** - https://mep.purdue.edu/about-us/staff/
-6. **Iowa (IA)** - https://www.ciras.iastate.edu/staff-directory/
+1. **Hawaii (HI)** - https://www.htdc.org/our-team/
+2. **Idaho (ID)** - https://www.techhelp.org/staff/
+3. **Illinois (IL)** - https://www.imec.org/
+4. **Indiana (IN)** - https://mep.purdue.edu/about-us/staff/
+5. **Iowa (IA)** - https://www.ciras.iastate.edu/staff-directory/
 
 Then continue through the alphabet...
 
@@ -113,8 +119,8 @@ Then continue through the alphabet...
 
 ## Remaining Work
 
-- **42 states still to complete**
-- **Estimated 2,400-3,400 more staff to collect**
+- **41 states still to complete**
+- **Estimated 2,300-3,300 more staff to collect**
 - **At current pace**: ~5-10 states per session
 
 ## Known Issues
@@ -139,4 +145,4 @@ Then continue through the alphabet...
 
 ---
 Last Updated: November 2025
-Next State to Complete: Georgia (GA)
+Next State to Complete: Hawaii (HI)
