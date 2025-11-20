@@ -134,7 +134,7 @@ Then continue through the alphabet...
 ## Git Status
 
 **Current branch:** main
-**Last commit:** 15d5e37 Initial project setup with documentation structure
+**Last commit:** 5b4621f Add existing MEP scraper code and data files
 **Ready to merge:** N/A (on main branch)
 
 ---
