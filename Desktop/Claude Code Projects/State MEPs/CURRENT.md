@@ -146,7 +146,7 @@ Then continue through the alphabet...
 ## Git Status
 
 **Current branch:** main
-**Last commit:** 5b4621f Add existing MEP scraper code and data files
+**Last commit:** 44e5c0e Complete Hawaii (HI) scraper - 13 staff members
 **Ready to merge:** N/A (on main branch)
 
 ---
