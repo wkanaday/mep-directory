@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.google.com)",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "WebSearch",
+      "WebFetch(domain:ncmep.org)",
+      "WebFetch(domain:okalliance.com)",
+      "WebFetch(domain:pamep.org)",
+      "WebFetch(domain:utah-mep.org)",
+      "WebFetch(domain:wvmep.com)",
+      "WebFetch(domain:industrialextension.statler.wvu.edu)",
+      "WebFetch(domain:wmep.org)",
+      "WebFetch(domain:primexpr.org)",
+      "WebFetch(domain:www.manufacturingsuccess.org)",
+      "WebFetch(domain:mep.utah.edu)",
+      "Bash(curl:*)",
+      "Bash(cat:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git remote add:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
