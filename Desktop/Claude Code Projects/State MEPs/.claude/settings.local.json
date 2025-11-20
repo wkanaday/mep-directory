@@ -22,7 +22,8 @@
       "Bash(git remote add:*)",
       "Bash(git branch:*)",
       "Bash(git push:*)",
-      "WebFetch(domain:gamep.org)"
+      "WebFetch(domain:gamep.org)",
+      "WebFetch(domain:www.htdc.org)"
     ],
     "deny": [],
     "ask": []
