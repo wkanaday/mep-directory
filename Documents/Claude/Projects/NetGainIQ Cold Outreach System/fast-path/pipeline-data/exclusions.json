@@ -1,0 +1,14 @@
+{
+  "_comment": "Domains excluded from Tier B Manufacturing outreach. Distributors and OEM end-users from the TAM exclusion list, plus Kennametal (anchor client — no double-dipping). Edit by adding lowercased domains to the list. Contact finder filters by primary_domain match.",
+  "domains": [
+    "mscdirect.com",
+    "grainger.com",
+    "fastenal.com",
+    "boeing.com",
+    "caterpillar.com",
+    "ford.com",
+    "gm.com",
+    "johndeere.com",
+    "kennametal.com"
+  ]
+}

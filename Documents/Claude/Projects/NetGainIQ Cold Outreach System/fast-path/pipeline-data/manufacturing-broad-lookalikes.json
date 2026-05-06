@@ -1,0 +1,75 @@
+{
+  "_comment": "Named look-alikes for Tier B Manufacturing — primary cohort anchors from industrial-tooling-metalworking-tam.md. Used by contact_finder for the lookalike pass (first phase of company discovery, before the SIC/NAICS broad search). Domains are best-guess primaries; contact_finder uses Apollo's resolved primary_domain after lookup. Aliases let the search match common spellings/abbreviations.",
+  "companies": [
+    {
+      "name": "Lincoln Electric",
+      "aliases": ["Lincoln Electric Holdings", "Lincoln Electric Company"],
+      "domain": "lincolnelectric.com",
+      "revenue_estimate": "$4.0B",
+      "hq_state": "OH"
+    },
+    {
+      "name": "Carpenter Technology",
+      "aliases": ["Carpenter Technology Corporation", "CarTech"],
+      "domain": "carpentertechnology.com",
+      "revenue_estimate": "$2.7B",
+      "hq_state": "PA"
+    },
+    {
+      "name": "Timken",
+      "aliases": ["The Timken Company", "Timken Co"],
+      "domain": "timken.com",
+      "revenue_estimate": "$4.6B",
+      "hq_state": "OH"
+    },
+    {
+      "name": "ATI",
+      "aliases": ["Allegheny Technologies", "Allegheny Technologies Incorporated", "ATI Inc"],
+      "domain": "atimaterials.com",
+      "revenue_estimate": "$4.2B",
+      "hq_state": "PA"
+    },
+    {
+      "name": "Haynes International",
+      "aliases": ["Haynes Intl", "Haynes"],
+      "domain": "haynesintl.com",
+      "revenue_estimate": "$0.6B",
+      "hq_state": "IN"
+    },
+    {
+      "name": "Materion",
+      "aliases": ["Materion Corporation", "Materion Corp"],
+      "domain": "materion.com",
+      "revenue_estimate": "$1.7B",
+      "hq_state": "OH"
+    },
+    {
+      "name": "Mueller Industries",
+      "aliases": ["Mueller Industries Inc"],
+      "domain": "muellerindustries.com",
+      "revenue_estimate": "$3.7B",
+      "hq_state": "TN"
+    },
+    {
+      "name": "RBC Bearings",
+      "aliases": ["RBC Bearings Incorporated", "Roller Bearing Company"],
+      "domain": "rbcbearings.com",
+      "revenue_estimate": "$1.6B",
+      "hq_state": "CT"
+    },
+    {
+      "name": "EnPro Industries",
+      "aliases": ["EnPro Inc", "Enpro Industries"],
+      "domain": "enproindustries.com",
+      "revenue_estimate": "$1.1B",
+      "hq_state": "NC"
+    },
+    {
+      "name": "Worthington Enterprises",
+      "aliases": ["Worthington Industries", "Worthington Steel"],
+      "domain": "worthingtonenterprises.com",
+      "revenue_estimate": "$3.3B",
+      "hq_state": "OH"
+    }
+  ]
+}

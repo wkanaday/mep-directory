@@ -1,0 +1,11 @@
+{
+  "_comment": "Per-campaign run config. Pass to fast_path_runner.py via --config. Vault paths point at industrial-tooling-metalworking persona/TAM (existing) and the manufacturing-evergreen template (Wilson writes in Cowork before May 9). Preflight will fail until the template file lands.",
+  "tam_path": "C:/Users/wkana/AI/Obsidian Vault/NetGainIQ/TAM/industrial-tooling-metalworking-tam.md",
+  "persona_path": "C:/Users/wkana/AI/Obsidian Vault/NetGainIQ/Personas/industrial-tooling-metalworking-persona.md",
+  "template_path": "C:/Users/wkana/AI/Obsidian Vault/NetGainIQ/Templates/manufacturing-evergreen-email-templates.md",
+  "exclusions_path": "pipeline-data/exclusions.json",
+  "lookalikes_path": "pipeline-data/manufacturing-broad-lookalikes.json",
+  "max_contacts": 30,
+  "max_per_company": 2,
+  "warn_below_hit_rate": 0.5
+}
