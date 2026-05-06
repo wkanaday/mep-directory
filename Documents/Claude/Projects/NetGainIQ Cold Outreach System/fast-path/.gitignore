@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.env
+.pytest_cache/
+pipeline-data/2*_*.json
+pipeline-data/2*_*.log
+pipeline-data/2*_*.md
