@@ -294,3 +294,85 @@ def _safe_json(resp) -> dict:
         return body if isinstance(body, dict) else {"_raw": body}
     except Exception:  # noqa: BLE001
         return {}
+
+
+# ---------------------------------------------------------------------------
+# CLI — runs as a separate manual step after Wilson reviews assembled emails
+# ---------------------------------------------------------------------------
+
+def _build_instantly_client(env: dict[str, str]) -> FastPathApiClient:
+    return FastPathApiClient(
+        base_url=cfg.INSTANTLY_BASE_URL,
+        headers={
+            "Authorization": f"Bearer {env['INSTANTLY_API_KEY']}",
+            "Content-Type": "application/json",
+        },
+        delay_s=cfg.INSTANTLY_RATE["delay_s"],
+        backoff_schedule=cfg.INSTANTLY_RATE["backoff_schedule"],
+        name="instantly",
+    )
+
+
+def main(argv: Optional[list[str]] = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Load assembled emails into a paused Instantly campaign.",
+    )
+    parser.add_argument(
+        "--records",
+        type=Path,
+        required=True,
+        help="Path to a 2026-MM-DD_emails_assembled.json file.",
+    )
+    parser.add_argument(
+        "--campaign-name",
+        type=str,
+        default=None,
+        help=f"Campaign name override (default: {cfg.DEFAULT_CAMPAIGN_NAME})",
+    )
+    args = parser.parse_args(argv)
+
+    if not args.records.exists():
+        print(f"[FAIL] records file not found: {args.records}")
+        return 1
+
+    payload = json.loads(args.records.read_text(encoding="utf-8"))
+    records = payload.get("records") if isinstance(payload, dict) else payload
+    if not isinstance(records, list) or not records:
+        print(f"[FAIL] records file has no `records` array: {args.records}")
+        return 1
+
+    print(f"Loading {len(records)} leads into Instantly...")
+    print(f"Campaign name: {args.campaign_name or cfg.DEFAULT_CAMPAIGN_NAME}")
+    print("Status: PAUSED — activate manually after final review.\n")
+
+    env = cfg.load_env()
+    instantly = _build_instantly_client(env)
+
+    try:
+        result = load_campaign(
+            records, instantly, campaign_name=args.campaign_name,
+        )
+    except FastPathError as e:
+        print(f"[FAIL] {e}")
+        return 1
+    except (AuthFailureError, CreditsExhaustedError) as e:
+        print(f"[FAIL] {type(e).__name__}: {e}")
+        return 1
+
+    out_path = write_result(result)
+    print(f"[OK] campaign created: {result.campaign_id} ({result.status})")
+    print(f"     accounts attached: {len(result.accounts_attached)}")
+    print(f"     leads uploaded:    {result.leads_uploaded}")
+    if result.errors:
+        print(f"     errors: {len(result.errors)}")
+        for err in result.errors[:5]:
+            print(f"       - {err}")
+    print(f"\nResult: {out_path}")
+    print("\nNext: open Instantly UI, review the campaign, then activate.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
