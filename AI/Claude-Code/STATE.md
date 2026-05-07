@@ -1,10 +1,44 @@
-# STATE.md — Last updated: 2026-05-06 (Fast Path pipeline scaffolding complete)
+# STATE.md — Last updated: 2026-05-07 (Fast Path Gate 1 cleared — flat template parser)
 
 **Note:** Canonical implementation status lives in STATUS.md in the Desktop project. This file is a lightweight operational snapshot for Code session startup. If these diverge, STATUS.md is authoritative.
 
 ---
 
 ## What Changed Last Session
+**2026-05-07 — Fast Path Gate 1: email_assembler adapted for flat template format**
+
+Wilson finished the manufacturing-evergreen template in Cowork and saved it to the vault. It uses a flatter layout than the original PRD anticipated: `## Email N: Title` H2 headers directly under the document, no `## Angle X` per-angle wrapping, no rich/lite tier branching, no spintax (one version per email). The existing parser only knew the multi-angle layout, so `assemble_emails()` returned `[]` against production — Gate 1 of 3 before Friday's first send.
+
+Plan at `~/.claude/plans/flat-template-parser.md`. Single commit: `351ee97`.
+
+### Files modified
+- `Documents/Claude/Projects/NetGainIQ Cold Outreach System/fast-path/email_assembler.py` — added `_FLAT_EMAIL_HEADER_RE`, added `_try_parse_flat_emails(text)`, modified `_parse_angles` to fall through to flat parsing wrapped in synthetic `TemplateAngle(name="default", emails=...)` with `tier="universal"`. `_word_count` regex updated to match the new signature pattern.
+- `Documents/Claude/Projects/NetGainIQ Cold Outreach System/cold-email-template-writer/scripts/check_scoring.py` — `_extract_body` signature regex updated `\s*NetGainIQ\s*$` → `[^\n]*NetGainIQ\s*$` so signature lines like `Partner, NetGainIQ` (production format) get stripped. Backward-compatible; all 10 existing check_scoring tests still pass.
+- `Documents/Claude/Projects/NetGainIQ Cold Outreach System/fast-path/tests/test_email_assembler.py` — added `FLAT_TEMPLATE` fixture mimicking the production shape + 9 new tests including 2 smoke tests against the real vault file.
+
+### Verification
+- All 191 tests passing (172 fast-path + 10 check_scoring + 9 new flat-template).
+- Production template smoke: `parse_template` returns 1 angle with 3 emails. `assemble_emails` produces 3 fully-resolved emails (no `{...}` markers). Word counts `[51, 44, 39]` — match template's self-reported `(50, 43, 40)` within tokenization noise.
+
+### Out-of-scope follow-on flagged for Wilson
+The production template's `**Sender:**` line is `Wilson Kanaday, Partner, NetGainIQ` (verbose) but the body has `{sender_name}\nPartner, NetGainIQ`. The greedy `_SENDER_RE` captures the whole verbose string, so the assembled signature renders as:
+```
+Wilson Kanaday, Partner, NetGainIQ
+Partner, NetGainIQ
+```
+Duplicated title. Doesn't affect scoring (signature regex strips both lines before scoring) but Wilson will see it during the assembled-emails review. Two clean fixes:
+- Trim the template's `**Sender:**` line to just `Wilson Kanaday`.
+- Or extend `parse_template` to read `sender_name:` from YAML frontmatter (which has the clean value).
+
+Either fix is small. Not done in this commit per work-order scope.
+
+### Next gates before Friday May 9
+- Gate 2: real `.env` populated with Apollo + LeadMagic + Instantly API keys.
+- Gate 3: end-to-end smoke run on 5 real contacts in paused state, eyeball every email, then activate.
+
+---
+
+## Previous Session
 **2026-05-06 — Fast Path to First Send: full pipeline scaffolded + tested (Tier B Manufacturing)**
 
 Built the missing Tier B sending loop per `NetGainIQ Cold Outreach System/PRD-FAST-PATH-PIPELINE.md` and the plan at `~/.claude/plans/prd-fast-path-typed-castle.md`. Five Python modules + 2 shared utilities live in a new `fast-path/` subdirectory under `NetGainIQ Cold Outreach System/`. Pipeline takes TAM parameters and an evergreen template, produces a paused, lead-loaded Instantly campaign with a manual review gate between assembly and load. No LLM calls — pure deterministic Python.
