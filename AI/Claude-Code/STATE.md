@@ -1,6 +1,34 @@
-# STATE.md — Last updated: 2026-05-07 (Fast Path Gate 1 cleared — flat template parser)
+# STATE.md — Last updated: 2026-05-07 (Fast Path: Apollo migration completed — preview/unlock split)
 
 **Note:** Canonical implementation status lives in STATUS.md in the Desktop project. This file is a lightweight operational snapshot for Code session startup. If these diverge, STATUS.md is authoritative.
+
+---
+
+## What Changed Last Session
+**2026-05-07 (afternoon) — Fast Path: Apollo migration completed (preview/unlock split)**
+
+First end-to-end live run halted with 0 verified contacts of 30 target despite Apollo returning 890 people across 467 orgs. Root cause: yesterday's commit `b533a1e` swapped the deprecated `/api/v1/people/search` endpoint for `/api/v1/mixed_people/api_search` but the new endpoint returns *previews only* — `last_name_obfuscated: 'Wi***r'`, no `email` field — and `source_email()` bailed on every contact because of the `if not (domain and first and last)` guard. LeadMagic finder was never invoked.
+
+Fix: added `enrich_person()` helper that calls `/api/v1/people/match` with the preview's person ID; orchestrator now enriches each `select_contacts()` survivor before sourcing email. Only 1-2 contacts per company get unlocked (caps Apollo enrichment-credit spend at ~30-60 per max_contacts=30 run).
+
+**End-to-end verification still pending** — re-run halted at preflight on a separate LeadMagic 401 (`invalid_api_key`) that emerged between the two runs in the same session. Wilson needs to refresh the LeadMagic key in `.env` before the assembled-emails JSON can be inspected.
+
+### Files modified
+- `Documents/Claude/Projects/NetGainIQ Cold Outreach System/fast-path/contact_finder.py` — added `enrich_person(apollo, person)` helper that POSTs to `/api/v1/people/match` with the preview's `id` and returns the unlocked dict (preserves preview's title if match returns no title); wired into `find_contacts()` orchestrator after `select_contacts()` and before `source_email()`. `fetch_people` docstring updated to flag the preview/unlock split.
+- `Documents/Claude/Projects/NetGainIQ Cold Outreach System/fast-path/tests/test_contact_finder.py` — 6 new tests under "Phase 6.5 — Apollo people/match enrichment": happy path, no-id short-circuit, HTTP failure graceful return, `CreditsExhausted` propagation, `{"person": {...}}` wrapper unwrap, and preview-title preservation.
+
+### Verification
+- 197 tests passing (187 fast-path including 6 new + 10 check_scoring).
+- Live Apollo probe confirmed `/api/v1/people/match` returns full record (`last_name: 'Winter'`, `email: 'awinter@lincolnelectric.com'`) for a preview that had `last_name_obfuscated: 'Wi***r'` — fix path proven against real API.
+- Pipeline re-run blocked at LeadMagic 401 preflight gate; assembled-emails JSON not produced this session.
+
+### Open issue blocking Gate 3
+**LeadMagic API key returns 401 `invalid_api_key`** ("The key does not exist or is incorrect"). Same key in `.env` (`lm_live_...8a80`, 48 chars) passed preflight 10 minutes earlier in the same session. Direct probe (bypassing the wrapper) reproduces the 401. Likely the key was rotated, hit a quota cap returning 401 instead of 429, or LeadMagic toggled it. Wilson needs to log into LeadMagic and refresh the key, then re-run the pipeline.
+
+### Next gates before Friday May 9
+- ~~Gate 1: flat template parser~~ ✅ cleared 2026-05-07 morning (commit `351ee97`).
+- Gate 2 partial: Apollo + Instantly verified live; LeadMagic key needs refresh.
+- Gate 3: end-to-end smoke run pending LeadMagic key refresh.
 
 ---
 

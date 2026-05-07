@@ -268,7 +268,9 @@ def fetch_people(apollo: FastPathApiClient, org: dict) -> list[dict]:
     list. Returns list of person dicts.
 
     Uses /api/v1/mixed_people/api_search (the legacy /api/v1/people/search
-    was deprecated for API callers as of 2026-05-07).
+    was deprecated for API callers as of 2026-05-07). Note: this endpoint
+    returns *previews* — `last_name` is obfuscated and `email` is absent.
+    Call `enrich_person()` per selected contact to unlock the full record.
     """
     org_id = org.get("id") or org.get("organization_id")
     if not org_id:
@@ -291,6 +293,40 @@ def fetch_people(apollo: FastPathApiClient, org: dict) -> list[dict]:
         return []
     body = _safe_json(resp)
     return body.get("people") or body.get("contacts") or []
+
+
+def enrich_person(apollo: FastPathApiClient, person: dict) -> Optional[dict]:
+    """Unlock a preview record by calling /api/v1/people/match. Returns
+    the full person dict (with `last_name` and `email`) on success, or
+    `None` if the person has no id or the match call fails.
+
+    Costs one Apollo people-enrichment credit per call. Call only on
+    contacts that survive `select_contacts()` to minimize spend.
+    """
+    pid = person.get("id")
+    if not pid:
+        return None
+    try:
+        resp = apollo.call(
+            "POST",
+            "/api/v1/people/match",
+            json={"id": pid},
+        )
+    except (AuthFailureError, CreditsExhaustedError):
+        raise
+    except (requests.HTTPError, FastPathHttpError) as e:
+        logger.warning(f"people/match failed for person {pid}: {e}")
+        return None
+    body = _safe_json(resp)
+    unlocked = body.get("person") if isinstance(body.get("person"), dict) else body
+    if not isinstance(unlocked, dict) or not unlocked.get("id"):
+        return None
+    # Preserve the preview's title (the match endpoint can return a
+    # different employment record); the search-side title is what
+    # passed select_contacts() title-rank, so keep it authoritative.
+    if person.get("title") and not unlocked.get("title"):
+        unlocked["title"] = person["title"]
+    return unlocked
 
 
 def select_contacts(people: list[dict], *, max_per_company: int = 2) -> list[dict]:
@@ -523,10 +559,13 @@ def find_contacts(
             break
         people = fetch_people(apollo, org)
         selected = select_contacts(people, max_per_company=config.max_per_company)
-        for person in selected:
+        for preview in selected:
             if len(verified) >= config.max_contacts:
                 break
             summary.contacts_attempted += 1
+            # mixed_people/api_search returns previews (obfuscated last_name,
+            # no email). Unlock via /people/match before sourcing email.
+            person = enrich_person(apollo, preview) or preview
             email, source = source_email(leadmagic, person=person, org=org)
             if not email:
                 summary.emails_not_found += 1

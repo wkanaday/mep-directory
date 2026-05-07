@@ -22,6 +22,7 @@ import contact_finder  # noqa: E402
 from contact_finder import (  # noqa: E402
     HitRateSummary,
     build_verified_contact,
+    enrich_person,
     fetch_people,
     filter_excluded,
     industry_term_for,
@@ -302,6 +303,67 @@ def test_fetch_people_passes_org_id_in_search_filter():
 
 
 # ---------------------------------------------------------------------------
+# Phase 6.5 — Apollo people/match enrichment (unlocks preview records)
+# ---------------------------------------------------------------------------
+
+def test_enrich_person_unlocks_full_record():
+    apollo = _SeqClient([_FakeResponse(200, body={
+        "first_name": "Andrew",
+        "last_name": "Winter",
+        "email": "awinter@lincolnelectric.com",
+        "title": "VP Operations",
+        "id": "abc123",
+    })])
+    preview = {"id": "abc123", "first_name": "Andrew", "last_name_obfuscated": "Wi***r", "title": "VP Operations"}
+    out = enrich_person(apollo, preview)
+    assert out is not None
+    assert out["last_name"] == "Winter"
+    assert out["email"] == "awinter@lincolnelectric.com"
+    assert apollo.calls[0] == ("POST", "/api/v1/people/match")
+
+
+def test_enrich_person_returns_none_when_no_id():
+    apollo = _SeqClient([])  # should never be called
+    out = enrich_person(apollo, {"first_name": "Andrew"})
+    assert out is None
+    assert apollo.calls == []
+
+
+def test_enrich_person_handles_match_failure_gracefully():
+    apollo = _SeqClient([FastPathHttpError("404")])
+    out = enrich_person(apollo, {"id": "abc123", "first_name": "Andrew"})
+    assert out is None
+
+
+def test_enrich_person_propagates_credits_exhausted():
+    apollo = _SeqClient([CreditsExhaustedError("402")])
+    try:
+        enrich_person(apollo, {"id": "abc123"})
+    except CreditsExhaustedError:
+        return
+    raise AssertionError("expected CreditsExhaustedError to propagate")
+
+
+def test_enrich_person_unwraps_person_wrapper_when_present():
+    apollo = _SeqClient([_FakeResponse(200, body={"person": {
+        "id": "abc123", "first_name": "Jane", "last_name": "Doe", "email": "jd@x.com",
+    }})])
+    out = enrich_person(apollo, {"id": "abc123"})
+    assert out is not None
+    assert out["last_name"] == "Doe"
+    assert out["email"] == "jd@x.com"
+
+
+def test_enrich_person_preserves_preview_title_when_match_omits_it():
+    apollo = _SeqClient([_FakeResponse(200, body={
+        "id": "abc123", "first_name": "Andrew", "last_name": "Winter", "email": "a@b.com",
+    })])
+    preview = {"id": "abc123", "title": "VP Operations"}
+    out = enrich_person(apollo, preview)
+    assert out["title"] == "VP Operations"
+
+
+# ---------------------------------------------------------------------------
 # Phase 7 — Email sourcing
 # ---------------------------------------------------------------------------
 
@@ -537,6 +599,12 @@ def run_all_tests() -> bool:
         test_no_finance_present_returns_top_two_by_priority,
         test_fetch_people_returns_empty_when_org_has_no_id,
         test_fetch_people_passes_org_id_in_search_filter,
+        test_enrich_person_unlocks_full_record,
+        test_enrich_person_returns_none_when_no_id,
+        test_enrich_person_handles_match_failure_gracefully,
+        test_enrich_person_propagates_credits_exhausted,
+        test_enrich_person_unwraps_person_wrapper_when_present,
+        test_enrich_person_preserves_preview_title_when_match_omits_it,
         test_apollo_email_present_skips_leadmagic,
         test_apollo_email_locked_falls_back_to_leadmagic,
         test_apollo_email_absent_calls_leadmagic_finder,
