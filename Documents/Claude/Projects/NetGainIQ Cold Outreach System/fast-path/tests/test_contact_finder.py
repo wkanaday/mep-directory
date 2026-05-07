@@ -296,7 +296,9 @@ def test_fetch_people_passes_org_id_in_search_filter():
     apollo = _SeqClient([_FakeResponse(200, body={"people": [{"first_name": "John"}]})])
     out = fetch_people(apollo, {"id": "ABC123", "name": "Co"})
     assert len(out) == 1
-    assert apollo.calls[0] == ("POST", "/api/v1/people/search")
+    # Apollo deprecated /api/v1/people/search on 2026-05-07; we use the
+    # replacement endpoint /api/v1/mixed_people/api_search.
+    assert apollo.calls[0] == ("POST", "/api/v1/mixed_people/api_search")
 
 
 # ---------------------------------------------------------------------------

@@ -121,15 +121,19 @@ def check_env(env: dict[str, str]) -> CheckResult:
 # ---------------------------------------------------------------------------
 
 def check_apollo_plan(client: FastPathApiClient) -> CheckResult:
-    """POST /api/v1/people/search with a small filter — zero credit cost.
-    Basic plan returns 200 + pagination.total_entries.
-    Free plan returns 403; bad key returns 401.
+    """POST /api/v1/mixed_people/api_search with a small filter — zero
+    credit cost. The legacy /api/v1/people/search was deprecated for API
+    callers (returns 422 with a deprecation message redirecting here).
+
+    The new endpoint returns 200 with `total_entries` at top level (not
+    nested under `pagination`). Basic plan succeeds; free plan returns
+    403; bad key returns 401.
     """
     try:
         resp = client.call(
             "POST",
-            "/api/v1/people/search",
-            json={"q_organization_domains": ["apollo.io"], "per_page": 1},
+            "/api/v1/mixed_people/api_search",
+            json={"q_organization_domains_list": ["apollo.io"], "per_page": 1},
         )
     except AuthFailureError:
         return CheckResult("apollo_plan", "fail", "401 — Apollo API key rejected")
@@ -152,16 +156,22 @@ def check_apollo_plan(client: FastPathApiClient) -> CheckResult:
     except Exception:  # noqa: BLE001
         return CheckResult("apollo_plan", "fail", "Apollo returned non-JSON response")
 
-    if "pagination" in body and "total_entries" in body.get("pagination", {}):
+    # Accept either top-level `total_entries` (new mixed_people/api_search)
+    # or nested `pagination.total_entries` (legacy shape, in case Apollo
+    # mixes responses or rolls back).
+    total = body.get("total_entries")
+    if total is None and isinstance(body.get("pagination"), dict):
+        total = body["pagination"].get("total_entries")
+    if total is not None:
         return CheckResult(
             "apollo_plan",
             "pass",
-            f"Basic plan active (total_entries={body['pagination']['total_entries']})",
+            f"Basic plan active (total_entries={total})",
         )
     return CheckResult(
         "apollo_plan",
         "fail",
-        "Apollo response missing pagination.total_entries",
+        "Apollo response missing total_entries (and pagination.total_entries)",
     )
 
 

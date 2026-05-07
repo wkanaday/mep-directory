@@ -266,6 +266,9 @@ def lookalike_coverage(
 def fetch_people(apollo: FastPathApiClient, org: dict) -> list[dict]:
     """Pull people for one organization, filtered by the title priority
     list. Returns list of person dicts.
+
+    Uses /api/v1/mixed_people/api_search (the legacy /api/v1/people/search
+    was deprecated for API callers as of 2026-05-07).
     """
     org_id = org.get("id") or org.get("organization_id")
     if not org_id:
@@ -273,9 +276,9 @@ def fetch_people(apollo: FastPathApiClient, org: dict) -> list[dict]:
     try:
         resp = apollo.call(
             "POST",
-            "/api/v1/people/search",
+            "/api/v1/mixed_people/api_search",
             json={
-                "q_organization_ids": [org_id],
+                "organization_ids": [org_id],
                 "person_titles": cfg.TITLE_PRIORITY,
                 "page": 1,
                 "per_page": PEOPLE_SEARCH_PER_PAGE,
