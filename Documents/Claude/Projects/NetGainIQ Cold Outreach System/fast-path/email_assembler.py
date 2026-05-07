@@ -333,6 +333,16 @@ def _build_variables(contact: dict, sender_name: str) -> dict[str, str]:
     }
 
 
+def _fix_company_possessive(body: str, company_name: str) -> str:
+    """Normalize "Xs's" → "Xs'" when the company name ends in `s`.
+    Scoped to literal `<company_name>'s` matches so unrelated possessives
+    (e.g., "boss's office") are untouched.
+    """
+    if not company_name or not company_name.endswith(("s", "S")):
+        return body
+    return body.replace(f"{company_name}'s", f"{company_name}'")
+
+
 def _word_count(body: str) -> int:
     """Word count after stripping greeting/signature/PS — mirrors the
     extractor inside check_scoring._extract_body for reporting purposes.
@@ -384,6 +394,7 @@ def assemble_for_contact(
         body = resolve_spintax_and_variables(
             email.body, variant_index=variant, variables=variables,
         )
+        body = _fix_company_possessive(body, variables["company_name"])
 
         # Reject on unresolved variables.
         leftovers = [m.group(0) for m in _UNRESOLVED_MARKER_RE.finditer(body) if m.group(0).startswith("{")]
@@ -415,6 +426,8 @@ def assemble_for_contact(
     return {
         "contact_id": contact.get("contact_id"),
         "email": contact.get("email"),
+        "email_status": contact.get("email_status"),
+        "email_confidence": contact.get("email_confidence"),
         "first_name": contact.get("first_name"),
         "last_name": contact.get("last_name"),
         "company_name": contact.get("company_name"),

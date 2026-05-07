@@ -524,6 +524,62 @@ def test_assemble_for_contact_returns_three_emails():
     assert rec["email_3_body"]
 
 
+def test_company_possessive_fixed_when_name_ends_in_s():
+    # FLAT_TEMPLATE has `{company_name}'s` in email 2 body. A company name
+    # ending in 's' (e.g., "RBC Bearings") should render as "RBC Bearings'"
+    # not "RBC Bearings's".
+    p = _write_template(FLAT_TEMPLATE)
+    template = parse_template(p)
+    p.unlink()
+    rec = assemble_for_contact(
+        _contact(company_name="RBC Bearings", facility_count=None),
+        template, counter=0,
+    )
+    assert rec is not None
+    full = rec["email_1_body"] + rec["email_2_body"] + rec["email_3_body"]
+    assert "RBC Bearings's" not in full
+    assert "RBC Bearings'" in full
+
+
+def test_company_possessive_unchanged_when_name_does_not_end_in_s():
+    p = _write_template(FLAT_TEMPLATE)
+    template = parse_template(p)
+    p.unlink()
+    rec = assemble_for_contact(
+        _contact(company_name="Lincoln Electric", facility_count=None),
+        template, counter=0,
+    )
+    assert rec is not None
+    full = rec["email_1_body"] + rec["email_2_body"] + rec["email_3_body"]
+    assert "Lincoln Electric's" in full
+
+
+def test_email_status_propagated_into_assembled_record():
+    p = _write_template(FLAT_TEMPLATE)
+    template = parse_template(p)
+    p.unlink()
+    rec = assemble_for_contact(
+        _contact(email_status="risky", email_confidence=85, facility_count=None),
+        template, counter=0,
+    )
+    assert rec is not None
+    assert rec["email_status"] == "risky"
+    assert rec["email_confidence"] == 85
+
+
+def test_email_status_absent_renders_as_none():
+    p = _write_template(FLAT_TEMPLATE)
+    template = parse_template(p)
+    p.unlink()
+    contact = _contact(facility_count=None)
+    contact.pop("email_status", None)
+    contact.pop("email_confidence", None)
+    rec = assemble_for_contact(contact, template, counter=0)
+    assert rec is not None
+    assert rec["email_status"] is None
+    assert rec["email_confidence"] is None
+
+
 def test_data_rich_routes_when_facility_count_present():
     p = _write_template()
     template = parse_template(p)
@@ -951,6 +1007,10 @@ def run_all_tests() -> bool:
         test_parse_template_body_has_no_metadata_lines,
         test_parse_template_sender_name_from_frontmatter,
         test_assemble_for_contact_returns_three_emails,
+        test_company_possessive_fixed_when_name_ends_in_s,
+        test_company_possessive_unchanged_when_name_does_not_end_in_s,
+        test_email_status_propagated_into_assembled_record,
+        test_email_status_absent_renders_as_none,
         test_data_rich_routes_when_facility_count_present,
         test_data_lite_routes_when_facility_count_null,
         test_two_contacts_at_same_domain_get_different_angles,
