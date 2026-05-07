@@ -77,6 +77,9 @@ _FRONTMATTER_RE = re.compile(r"^---\n.*?\n---\n", re.DOTALL)
 _SENDER_RE = re.compile(r"^\*\*Sender:\*\*\s*(.+?)\s*$", re.MULTILINE)
 _ANGLE_HEADER_RE = re.compile(r"^##\s+(?!#)(.+?)\s*$", re.MULTILINE)
 _EMAIL_HEADER_RE = re.compile(r"^###\s+Email\s+(\d+)\s*[—\-]\s*(.+?)\s*$", re.MULTILINE)
+_FLAT_EMAIL_HEADER_RE = re.compile(
+    r"^##\s+Email\s+(\d+)\s*[:—\-]\s*(.+?)\s*$", re.MULTILINE
+)
 _SUBJECT_HEADER_RE = re.compile(r"^\*\*Subject lines:\*\*\s*$", re.MULTILINE)
 _BODY_HEADER_RE = re.compile(r"^\*\*Body:\*\*\s*$", re.MULTILINE)
 _SUBJECT_LINE_ITEM_RE = re.compile(r"^\s*\d+\.\s*(.+?)\s*$", re.MULTILINE)
@@ -99,10 +102,12 @@ def parse_template(template_path: Path) -> ParsedTemplate:
 
 
 def _parse_angles(text: str) -> list[TemplateAngle]:
-    """Split on `## Angle ...` headers. Each section is one angle."""
+    """Multi-angle path first (`## Angle X` sections, each with nested
+    `### Email N — Rich/Lite` subsections). If no angle sections yield
+    emails, fall back to flat format (`## Email N: Title` H2 headers
+    directly under the document) wrapped in a single synthetic angle.
+    """
     matches = list(_ANGLE_HEADER_RE.finditer(text))
-    if not matches:
-        return []
     angles: list[TemplateAngle] = []
     for i, m in enumerate(matches):
         name = m.group(1).strip()
@@ -115,7 +120,49 @@ def _parse_angles(text: str) -> list[TemplateAngle]:
         angle = TemplateAngle(name=name, emails=_parse_emails(section))
         if angle.emails:
             angles.append(angle)
-    return angles
+    if angles:
+        return angles
+
+    flat_emails = _try_parse_flat_emails(text)
+    if flat_emails:
+        return [TemplateAngle(name="default", emails=flat_emails)]
+    return []
+
+
+def _try_parse_flat_emails(text: str) -> list[TemplateEmail]:
+    """Parse `## Email N: Title` H2-level email headers (flat templates,
+    no per-angle wrapping). Each email's section runs from end-of-header
+    to the next H2 header of any kind — so trailing H2 sections like
+    `## Scoring Report` or `## Design Decisions` correctly bound the
+    last email's body region.
+
+    Tags every email with `tier="universal"` so TemplateAngle.email_for()
+    falls back regardless of the tier the assembler asks for.
+    """
+    flat_matches = list(_FLAT_EMAIL_HEADER_RE.finditer(text))
+    if not flat_matches:
+        return []
+    h2_starts = [m.start() for m in _ANGLE_HEADER_RE.finditer(text)]
+
+    emails: list[TemplateEmail] = []
+    for em in flat_matches:
+        number = int(em.group(1))
+        section_start = em.end()
+        section_end = next(
+            (s for s in h2_starts if s > em.start()),
+            len(text),
+        )
+        section = text[section_start:section_end]
+        subjects = _extract_subject_lines(section)
+        body = _extract_body(section)
+        if body:
+            emails.append(TemplateEmail(
+                number=number,
+                tier="universal",
+                subject_lines=subjects,
+                body=body,
+            ))
+    return emails
 
 
 def _parse_emails(angle_section: str) -> list[TemplateEmail]:
@@ -289,12 +336,14 @@ def _build_variables(contact: dict, sender_name: str) -> dict[str, str]:
 def _word_count(body: str) -> int:
     """Word count after stripping greeting/signature/PS — mirrors the
     extractor inside check_scoring._extract_body for reporting purposes.
+    The signature regex matches any final line ending with `NetGainIQ`
+    (e.g., bare `NetGainIQ` or `Partner, NetGainIQ`).
     """
     stripped = body.strip()
     stripped = re.sub(r"^\s*Hi\s+[^,\n]+,\s*\n+", "", stripped, count=1, flags=re.IGNORECASE)
     stripped = re.sub(r"\n+\s*PS:.*$", "", stripped, count=1, flags=re.DOTALL | re.IGNORECASE)
     stripped = re.sub(
-        r"\n+\s*\S[^\n]*\n+\s*NetGainIQ\s*$",
+        r"\n+\s*\S[^\n]*\n+[^\n]*NetGainIQ\s*$",
         "",
         stripped,
         count=1,

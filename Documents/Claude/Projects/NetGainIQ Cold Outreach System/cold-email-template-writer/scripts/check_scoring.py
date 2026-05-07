@@ -98,7 +98,7 @@ def _extract_body(text: str) -> str:
     body = re.sub(r"^\s*Hi\s+[^,\n]+,\s*\n+", "", body, count=1, flags=re.IGNORECASE)
     body = re.sub(r"\n+\s*PS:.*$", "", body, count=1, flags=re.DOTALL | re.IGNORECASE)
     body = re.sub(
-        r"\n+\s*\S[^\n]*\n+\s*NetGainIQ\s*$",
+        r"\n+\s*\S[^\n]*\n+[^\n]*NetGainIQ\s*$",
         "",
         body,
         count=1,

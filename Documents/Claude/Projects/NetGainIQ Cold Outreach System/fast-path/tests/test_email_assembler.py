@@ -262,6 +262,117 @@ NetGainIQ
 
 
 # ---------------------------------------------------------------------------
+# Flat-format fixture (mimics the production manufacturing-evergreen template)
+# ---------------------------------------------------------------------------
+
+FLAT_TEMPLATE = """\
+---
+title: "Test Flat Template"
+date: 2026-05-07
+sender_name: "Wilson Kanaday"
+---
+
+# Test Flat Template
+
+**Sender:** Wilson Kanaday
+
+---
+
+## Email 1: Cost recovery question
+
+**Subject lines:**
+1. cost line
+2. expense recovery
+3. invoice review
+
+**Body:**
+
+Hi {first_name},
+
+What if there were a single cost line at {company_name} that you could trim 20-40% on with no out-of-pocket spend?
+
+For most {industry_term} operators, waste services is that line. We do the review at no charge. If we don't find savings, you pay nothing.
+
+Worth a 15-minute call?
+
+{sender_name}
+Partner, NetGainIQ
+
+PS: Most operators we talk to have never had anyone look at this.
+
+**Word count:** 51 words (body only)
+
+---
+
+## Email 2: A peer review
+
+**Subject lines:**
+1. cost line
+2. expense recovery
+3. invoice review
+
+**Body:**
+
+Hi {first_name},
+
+What would you think if a quick review of {company_name}'s waste invoices surfaced 20-40% in overspending?
+
+That's the typical range for {industry_term} operators. The review is free. If we don't find anything, you pay nothing.
+
+Worth a quick look?
+
+{sender_name}
+Partner, NetGainIQ
+
+PS: Most operators we talk to have never had anyone look at this.
+
+**Word count:** 45 words (body only)
+
+---
+
+## Email 3: Closing the loop
+
+**Subject lines:**
+1. cost line
+2. expense recovery
+3. invoice review
+
+**Body:**
+
+Hi {first_name},
+
+What does {company_name} have to lose by letting us review your waste invoices when the review is free and you only pay if we find savings?
+
+Most {industry_term} operators are overpaying 20-40% and don't realize it.
+
+Worth 15 minutes?
+
+{sender_name}
+Partner, NetGainIQ
+
+PS: Most operators we talk to have never had anyone look at this.
+
+**Word count:** 41 words (body only)
+
+---
+
+## Scoring Report
+
+| Criterion | Email 1 | Email 2 | Email 3 |
+|-----------|---------|---------|---------|
+| C1 word count | PASS | PASS | PASS |
+
+---
+
+## Design Decisions
+
+- Same subject pool across all three emails.
+- No spintax. One version per email.
+- No facility_count variable.
+"""
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -657,6 +768,153 @@ def test_contact_with_all_three_emails_returns_record():
 
 
 # ---------------------------------------------------------------------------
+# Flat-format template (production manufacturing-evergreen shape)
+# ---------------------------------------------------------------------------
+
+def _flat_contact() -> dict:
+    """Contact with no facility_count — matches the flat-template variable set."""
+    return {
+        "contact_id": "flat-1",
+        "first_name": "John", "last_name": "Smith",
+        "email": "j.smith@timken.com",
+        "company_name": "Timken", "company_domain": "timken.com",
+        "industry_term": "bearings",
+        "facility_count": None,
+        "hq_city": "North Canton", "hq_state": "OH",
+    }
+
+
+def test_parse_flat_template_extracts_one_angle():
+    p = _write_template(FLAT_TEMPLATE)
+    template = parse_template(p)
+    p.unlink()
+    assert len(template.angles) == 1
+    assert template.angles[0].name == "default"
+
+
+def test_parse_flat_template_has_three_emails():
+    p = _write_template(FLAT_TEMPLATE)
+    template = parse_template(p)
+    p.unlink()
+    angle = template.angles[0]
+    assert len(angle.emails) == 3
+    assert sorted(e.number for e in angle.emails) == [1, 2, 3]
+    assert all(e.tier == "universal" for e in angle.emails)
+
+
+def test_flat_template_subject_lines_extracted():
+    p = _write_template(FLAT_TEMPLATE)
+    template = parse_template(p)
+    p.unlink()
+    e1 = template.angles[0].email_for(1, "rich")  # universal fallback
+    assert e1 is not None
+    assert "cost line" in e1.subject_lines
+    assert "expense recovery" in e1.subject_lines
+    assert "invoice review" in e1.subject_lines
+
+
+def test_flat_template_body_extracted_without_metadata():
+    p = _write_template(FLAT_TEMPLATE)
+    template = parse_template(p)
+    p.unlink()
+    for n in (1, 2, 3):
+        email = template.angles[0].email_for(n, "rich")
+        assert email is not None
+        # Body should NOT include `**Word count:**`, scoring-report content, or
+        # design-decisions content. The body extractor terminates at the next
+        # `**Foo:**` line, and the section walker stops at the next H2 header.
+        assert "Word count" not in email.body
+        assert "Scoring Report" not in email.body
+        assert "Design Decisions" not in email.body
+
+
+def test_assemble_for_contact_with_flat_template():
+    p = _write_template(FLAT_TEMPLATE)
+    template = parse_template(p)
+    rec = assemble_for_contact(_flat_contact(), template, counter=0)
+    p.unlink()
+    assert rec is not None, "expected a record back from the flat-template assembly"
+    assert rec["template_angle"] == "default"
+    # All three emails should have non-empty subject + body, no leftover markers.
+    for n in (1, 2, 3):
+        subj = rec[f"email_{n}_subject"]
+        body = rec[f"email_{n}_body"]
+        assert subj, f"email_{n}_subject is empty"
+        assert body, f"email_{n}_body is empty"
+        assert "{" not in subj, f"email_{n}_subject has unresolved marker: {subj}"
+        assert "{" not in body, f"email_{n}_body has unresolved marker: {body}"
+
+
+def test_flat_template_contacts_same_domain_get_same_angle():
+    """With one synthetic angle, all contacts at the same domain map to the
+    "default" angle. This is correct: rotation needs >=2 angles to vary.
+    """
+    p = _write_template(FLAT_TEMPLATE)
+    contacts = [
+        _flat_contact() | {"contact_id": "c1", "first_name": "A"},
+        _flat_contact() | {"contact_id": "c2", "first_name": "B"},
+    ]
+    out = assemble_emails(contacts, p)
+    p.unlink()
+    assert len(out) == 2
+    assert out[0]["template_angle"] == out[1]["template_angle"] == "default"
+
+
+def test_flat_template_contacts_same_domain_get_different_subjects():
+    """Variant counter still rotates subject-line selection within an email's
+    subject_lines list, even when the template has only one angle.
+    """
+    p = _write_template(FLAT_TEMPLATE)
+    contacts = [
+        _flat_contact() | {"contact_id": "c1", "first_name": "A"},
+        _flat_contact() | {"contact_id": "c2", "first_name": "B"},
+    ]
+    out = assemble_emails(contacts, p)
+    p.unlink()
+    assert out[0]["email_1_subject"] != out[1]["email_1_subject"]
+
+
+_PRODUCTION_TEMPLATE_PATH = Path(
+    r"C:\Users\wkana\AI\Obsidian Vault\NetGainIQ\Templates\manufacturing-evergreen-email-templates.md"
+)
+
+
+def test_parse_actual_production_template_smoke():
+    """Smoke test against the real manufacturing-evergreen template. Skips
+    cleanly if the file isn't present (e.g., on a fresh checkout).
+    """
+    if not _PRODUCTION_TEMPLATE_PATH.exists():
+        print(f"      (skipped — {_PRODUCTION_TEMPLATE_PATH} not found)")
+        return
+    template = parse_template(_PRODUCTION_TEMPLATE_PATH)
+    assert len(template.angles) == 1, (
+        f"expected 1 synthetic angle, got {len(template.angles)}"
+    )
+    angle = template.angles[0]
+    assert len(angle.emails) == 3, (
+        f"expected 3 emails in the flat template, got {len(angle.emails)}"
+    )
+    assert sorted(e.number for e in angle.emails) == [1, 2, 3]
+
+
+def test_assemble_against_actual_production_template_smoke():
+    """End-to-end assembly against the real production template."""
+    if not _PRODUCTION_TEMPLATE_PATH.exists():
+        print(f"      (skipped — {_PRODUCTION_TEMPLATE_PATH} not found)")
+        return
+    contacts = [_flat_contact()]
+    out = assemble_emails(contacts, _PRODUCTION_TEMPLATE_PATH)
+    assert len(out) == 1, "expected exactly one assembled record from one contact"
+    rec = out[0]
+    for n in (1, 2, 3):
+        body = rec[f"email_{n}_body"]
+        assert body, f"email_{n}_body is empty"
+        assert "{first_name}" not in body, "first_name was not substituted"
+        assert "{company_name}" not in body, "company_name was not substituted"
+        assert "{industry_term}" not in body, "industry_term was not substituted"
+
+
+# ---------------------------------------------------------------------------
 # write_assembled
 # ---------------------------------------------------------------------------
 
@@ -704,6 +962,16 @@ def run_all_tests() -> bool:
         test_no_unresolved_markers_in_assembled_output,
         test_word_counts_recorded_for_each_email,
         test_contact_with_all_three_emails_returns_record,
+        # Flat-format template (production manufacturing-evergreen shape)
+        test_parse_flat_template_extracts_one_angle,
+        test_parse_flat_template_has_three_emails,
+        test_flat_template_subject_lines_extracted,
+        test_flat_template_body_extracted_without_metadata,
+        test_assemble_for_contact_with_flat_template,
+        test_flat_template_contacts_same_domain_get_same_angle,
+        test_flat_template_contacts_same_domain_get_different_subjects,
+        test_parse_actual_production_template_smoke,
+        test_assemble_against_actual_production_template_smoke,
         test_write_assembled_creates_dated_json,
     ]
     n_passed = 0
